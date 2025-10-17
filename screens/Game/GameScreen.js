@@ -1,10 +1,17 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  SafeAreaView,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthContext } from '../../context/AuthContext.js';
+import { AuthContext } from '../../context/AuthContext';
 
 export default function GameScreen() {
-  const { user } = useContext(AuthContext); // 👈 get username from context
+  const { user } = useContext(AuthContext);
   const [score, setScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(10);
@@ -48,7 +55,6 @@ export default function GameScreen() {
     setGameOver(true);
     setIsPlaying(false);
 
-    // ✅ Update best score locally
     let newBest = bestScore;
     if (score > bestScore) {
       try {
@@ -63,27 +69,19 @@ export default function GameScreen() {
       Alert.alert('Game Over', `Your score: ${score}\nBest: ${bestScore}`);
     }
 
-    // ✅ Update leaderboard locally
     try {
       const stored = await AsyncStorage.getItem('leaderboard');
       const leaderboard = stored ? JSON.parse(stored) : [];
-
-      // Check if this user already exists
       const existing = leaderboard.find(p => p.username === user?.username);
       if (existing) {
-        // Update score if new one is higher
         existing.bestScore = Math.max(existing.bestScore, newBest);
       } else {
-        // Add new user entry
         leaderboard.push({
           username: user?.username || 'Guest',
           bestScore: newBest,
         });
       }
-
-      // Sort by highest score
       leaderboard.sort((a, b) => b.bestScore - a.bestScore);
-
       await AsyncStorage.setItem('leaderboard', JSON.stringify(leaderboard));
     } catch (error) {
       console.log('Error updating leaderboard:', error);
@@ -91,55 +89,136 @@ export default function GameScreen() {
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 20 }}>
-      <Text style={{ fontSize: 22 }}>⏱️ Time Left: {timeLeft}</Text>
-      <Text style={{ fontSize: 26 }}>🎯 Score: {score}</Text>
-      <Text style={{ fontSize: 20, color: 'gray' }}>🏆 Best Score: {bestScore}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.header}>🎮 TapDash</Text>
+        <Text style={styles.userText}>Welcome, {user?.username || 'Guest'}!</Text>
 
-      {!isPlaying && !gameOver && (
-        <TouchableOpacity
-          onPress={startGame}
-          style={{
-            backgroundColor: '#4CAF50',
-            paddingVertical: 15,
-            paddingHorizontal: 40,
-            borderRadius: 10,
-          }}
-        >
-          <Text style={{ color: 'white', fontSize: 18 }}>Start Game</Text>
-        </TouchableOpacity>
-      )}
+        <View style={styles.statsBox}>
+          <Text style={styles.statText}>⏱ {timeLeft}s</Text>
+          <Text style={styles.statText}>🎯 Score: {score}</Text>
+          <Text style={styles.bestText}>🏆 Best: {bestScore}</Text>
+        </View>
 
-      {isPlaying && (
-        <TouchableOpacity
-          onPress={handleTap}
-          style={{
-            backgroundColor: '#2196F3',
-            paddingVertical: 60,
-            paddingHorizontal: 60,
-            borderRadius: 999,
-          }}
-        >
-          <Text style={{ color: 'white', fontSize: 24 }}>TAP!</Text>
-        </TouchableOpacity>
-      )}
-
-      {gameOver && (
-        <>
-          <Text style={{ fontSize: 22, color: 'red' }}>Game Over!</Text>
-          <TouchableOpacity
-            onPress={startGame}
-            style={{
-              backgroundColor: '#f44336',
-              paddingVertical: 10,
-              paddingHorizontal: 30,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: 'white', fontSize: 18 }}>Play Again</Text>
+        {!isPlaying && !gameOver && (
+          <TouchableOpacity style={styles.startBtn} onPress={startGame}>
+            <Text style={styles.startText}>Start Game</Text>
           </TouchableOpacity>
-        </>
-      )}
-    </View>
+        )}
+
+        {isPlaying && (
+          <TouchableOpacity style={styles.tapButton} onPress={handleTap}>
+            <Text style={styles.tapText}>TAP!</Text>
+          </TouchableOpacity>
+        )}
+
+        {gameOver && (
+          <View style={styles.gameOverBox}>
+            <Text style={styles.gameOverText}>💀 Game Over!</Text>
+            <TouchableOpacity style={styles.playAgainBtn} onPress={startGame}>
+              <Text style={styles.playAgainText}>Play Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  header: {
+    fontSize: 30,
+    color: '#0077b6',
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  userText: {
+    color: '#555',
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  statsBox: {
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 16,
+    width: '80%',
+    alignItems: 'center',
+    marginBottom: 40,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  statText: {
+    color: '#333',
+    fontSize: 20,
+    fontWeight: '600',
+    marginVertical: 4,
+  },
+  bestText: {
+    color: '#0096c7',
+    fontSize: 18,
+    marginTop: 8,
+  },
+  startBtn: {
+    backgroundColor: '#48cae4',
+    paddingVertical: 15,
+    paddingHorizontal: 50,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  startText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  tapButton: {
+    backgroundColor: '#90e0ef',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    borderWidth: 3,
+    borderColor: '#00b4d8',
+  },
+  tapText: {
+    color: '#023e8a',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  gameOverBox: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  gameOverText: {
+    fontSize: 22,
+    color: '#ef233c',
+    marginBottom: 15,
+    fontWeight: 'bold',
+  },
+  playAgainBtn: {
+    backgroundColor: '#00b4d8',
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    borderRadius: 10,
+  },
+  playAgainText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+});

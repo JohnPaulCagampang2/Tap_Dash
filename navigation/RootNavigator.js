@@ -25,8 +25,8 @@ export default function RootNavigation() {
         </>
       ) : (
         <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="LoginScreen" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="RegisterScreen" component={RegisterScreen} options={{ headerShown: false }} />
         </>
       )}
     </Stack.Navigator>
