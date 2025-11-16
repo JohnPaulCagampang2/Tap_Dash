@@ -3,7 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Animated, Dimen
 import { AuthContext } from '../../context/AuthContext';
 
 const { width: W, height: H } = Dimensions.get('window');
-const EMOJI_SET = ['🎮', '⭐', '🏆', '✨', '🔥', '🎉', '💎', '🌟'];
+const EMOJI_SET = ['🎮', '⭐', '🏆', '✨', '🔥', '🎉', '🫶', '🌟'];
+
+// 🔒 CHANGE THIS TO YOUR ADMIN EMAIL
+const ADMIN_EMAIL = 'AdminOnly@gmail.com'; // ⚠️ UPDATE THIS!
 
 export default function HomeScreen({ navigation }) {
   const { logout, user } = useContext(AuthContext);
@@ -16,6 +19,9 @@ export default function HomeScreen({ navigation }) {
 
   // Particles state
   const [particles, setParticles] = useState([]);
+
+  // Admin access state
+  const [tapCount, setTapCount] = useState(0);
 
   useEffect(() => {
     // Staggered entrance animations
@@ -62,6 +68,26 @@ export default function HomeScreen({ navigation }) {
     const spawnInterval = setInterval(() => spawnParticleBurst(), 1500);
     return () => clearInterval(spawnInterval);
   }, []);
+
+  // Secret admin access - tap username 5 times
+  const handleUsernamePress = () => {
+    const newCount = tapCount + 1;
+    setTapCount(newCount);
+
+    if (newCount === 5) {
+      // Check if admin
+      if (user?.email === ADMIN_EMAIL) {
+        navigation.navigate('UsersList');
+        setTapCount(0);
+      } else {
+        // Reset counter for non-admin
+        setTapCount(0);
+      }
+    }
+
+    // Reset counter after 2 seconds
+    setTimeout(() => setTapCount(0), 2000);
+  };
 
   // Button press animations
   const animateButton = (scale) => {
@@ -205,7 +231,10 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.welcomeGlow} />
             <Text style={styles.welcomeEmoji}>👋</Text>
             <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.username}>{user?.username || 'Player'}</Text>
+            {/* SECRET ADMIN ACCESS - Tap username 5 times */}
+            <TouchableOpacity onPress={handleUsernamePress} activeOpacity={0.9}>
+              <Text style={styles.username}>{user?.username || 'Player'}</Text>
+            </TouchableOpacity>
             <View style={styles.divider} />
             <Text style={styles.miniText}>Ready to start your next adventure?</Text>
           </Animated.View>

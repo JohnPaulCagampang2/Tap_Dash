@@ -36,64 +36,176 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-// Register user (email, username, password)
-const register = async (email, username, password) => {
-  console.log('Register called with:', { email, username, password: password ? '***' : undefined });
-  
-  if (!email || !username || !password) {
-    return { success: false, message: 'Email, username, and password are required' };
-  }
+  // Register user (email, username, password)
+  const register = async (email, username, password) => {
+    console.log('Register called with:', { email, username, password: password ? '***' : undefined });
+    
+    if (!email || !username || !password) {
+      return { success: false, message: 'Email, username, and password are required' };
+    }
 
-  const users = await getRegisteredUsers();
-  const emailLower = email.toLowerCase();
-  
-  // ✅ Filter out any corrupted user objects and add defensive check
-  const validUsers = users.filter(u => u && u.email);
-  const exists = validUsers.find(u => u.email.toLowerCase() === emailLower);
-  
-  if (exists) return { success: false, message: 'Email already registered' };
+    const users = await getRegisteredUsers();
+    const emailLower = email.toLowerCase();
+    
+    // ✅ Filter out any corrupted user objects and add defensive check
+    const validUsers = users.filter(u => u && u.email);
+    const exists = validUsers.find(u => u.email.toLowerCase() === emailLower);
+    
+    if (exists) return { success: false, message: 'Email already registered' };
 
-  const newUser = { email: emailLower, username, password };
-  validUsers.push(newUser);
+    // Set admin to true ONLY for your specific email
+    const isAdmin = emailLower === 'AdminOnly@gmail.com'; // 👈 CHANGE THIS TO YOUR EMAIL
+    
+    const newUser = { email: emailLower, username, password, isAdmin };
+    validUsers.push(newUser);
 
-  try {
-    // Save the cleaned user list
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(validUsers));
-    return { success: true, message: 'Registered successfully' };
-  } catch (e) {
-    console.log('register error', e);
-    return { success: false, message: 'Failed to register' };
-  }
-};
+    try {
+      // Save the cleaned user list
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(validUsers));
+      return { success: true, message: 'Registered successfully' };
+    } catch (e) {
+      console.log('register error', e);
+      return { success: false, message: 'Failed to register' };
+    }
+  };
 
-// Login - also add defensive checks
-const login = async (email, password) => {
-  console.log('Login called with:', { email, password: password ? '***' : undefined });
-  
-  if (!email || !password) return { success: false, message: 'Email and password required' };
+  // Login - also add defensive checks
+  const login = async (email, password) => {
+    console.log('Login called with:', { email, password: password ? '***' : undefined });
+    
+    if (!email || !password) return { success: false, message: 'Email and password required' };
 
-  const users = await getRegisteredUsers();
-  const emailLower = email.toLowerCase();
-  
-  // ✅ Add defensive check here too
-  const validUsers = users.filter(u => u && u.email);
-  const found = validUsers.find(u => u.email.toLowerCase() === emailLower);
-  
-  if (!found) return { success: false, message: 'Email not found. Please register first.' };
+    const users = await getRegisteredUsers();
+    const emailLower = email.toLowerCase();
+    
+    // ✅ Add defensive check here too
+    const validUsers = users.filter(u => u && u.email);
+    const found = validUsers.find(u => u.email.toLowerCase() === emailLower);
+    
+    if (!found) return { success: false, message: 'Email not found. Please register first.' };
 
-  if (found.password !== password) return { success: false, message: 'Invalid password' };
+    if (found.password !== password) return { success: false, message: 'Invalid password' };
 
-  const sess = { email: found.email, username: found.username };
-  setUser(sess);
+    // Include all user data in session (displayName, photoURL, etc.)
+    const sess = { 
+      email: found.email, 
+      username: found.username,
+      displayName: found.displayName || found.username,
+      photoURL: found.photoURL || null
+    };
+    setUser(sess);
 
-  try {
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(sess));
-  } catch (e) {
-    console.log('session save error', e);
-  }
+    try {
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(sess));
+    } catch (e) {
+      console.log('session save error', e);
+    }
 
-  return { success: true, message: 'Logged in', user: sess };
-};
+    return { success: true, message: 'Logged in', user: sess };
+  };
+
+  // Update user profile (displayName, photoURL, etc.)
+  const updateProfile = async (updates) => {
+    if (!user) return { success: false, message: 'No user logged in' };
+
+    try {
+      const users = await getRegisteredUsers();
+      const validUsers = users.filter(u => u && u.email);
+      const userIndex = validUsers.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+
+      if (userIndex === -1) {
+        return { success: false, message: 'User not found' };
+      }
+
+      // Update the user object with new data
+      validUsers[userIndex] = {
+        ...validUsers[userIndex],
+        ...updates
+      };
+
+      // Save updated users list
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(validUsers));
+
+      // Update current session
+      const updatedUser = {
+        ...user,
+        ...updates
+      };
+      setUser(updatedUser);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+
+      return { success: true, message: 'Profile updated' };
+    } catch (e) {
+      console.log('updateProfile error', e);
+      return { success: false, message: 'Failed to update profile' };
+    }
+  };
+
+  // Admin: Update any user by email
+  const updateUser = async (email, updates) => {
+    try {
+      const users = await getRegisteredUsers();
+      const validUsers = users.filter(u => u && u.email);
+      const userIndex = validUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+
+      if (userIndex === -1) {
+        return { success: false, message: 'User not found' };
+      }
+
+      // Prevent email change
+      const { email: _, ...safeUpdates } = updates;
+
+      // Update the user object
+      validUsers[userIndex] = {
+        ...validUsers[userIndex],
+        ...safeUpdates
+      };
+
+      // Save updated users list
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(validUsers));
+
+      // If updating current user, update session too
+      if (user && user.email.toLowerCase() === email.toLowerCase()) {
+        const updatedUser = {
+          ...user,
+          ...safeUpdates
+        };
+        setUser(updatedUser);
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+      }
+
+      return { success: true, message: 'User updated successfully' };
+    } catch (e) {
+      console.log('updateUser error', e);
+      return { success: false, message: 'Failed to update user' };
+    }
+  };
+
+  // Admin: Delete user by email
+  const deleteUser = async (email) => {
+    try {
+      // Prevent deleting yourself
+      if (user && user.email.toLowerCase() === email.toLowerCase()) {
+        return { success: false, message: 'Cannot delete your own account' };
+      }
+
+      const users = await getRegisteredUsers();
+      const validUsers = users.filter(u => u && u.email);
+      const filteredUsers = validUsers.filter(u => u.email.toLowerCase() !== email.toLowerCase());
+
+      if (filteredUsers.length === validUsers.length) {
+        return { success: false, message: 'User not found' };
+      }
+
+      // Save updated users list
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(filteredUsers));
+
+      return { success: true, message: 'User deleted successfully' };
+    } catch (e) {
+      console.log('deleteUser error', e);
+      return { success: false, message: 'Failed to delete user' };
+    }
+  };
 
   // Logout
   const logout = async () => {
@@ -108,7 +220,16 @@ const login = async (email, password) => {
   if (loading) return null;
 
   return (
-    <AuthContext.Provider value={{ user, register, login, logout, getRegisteredUsers }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      register, 
+      login, 
+      logout, 
+      updateProfile, 
+      updateUser, 
+      deleteUser, 
+      getRegisteredUsers 
+    }}>
       {children}
     </AuthContext.Provider>
   );

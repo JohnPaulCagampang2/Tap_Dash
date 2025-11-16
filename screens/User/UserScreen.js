@@ -1,13 +1,45 @@
 // screens/User/UserScreen.js
 import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 
 export default function UserScreen() {
   const { user, logout, updateProfile } = useContext(AuthContext);
+  const navigation = useNavigation();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
+
+  const pickImage = async () => {
+    // Request permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant photo library access to change your profile picture');
+      return;
+    }
+
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const imageUri = result.assets[0].uri;
+      const res = await updateProfile({ photoURL: imageUri });
+      
+      if (res.success) {
+        Alert.alert('✓ Success', 'Profile picture updated');
+      } else {
+        Alert.alert('Error', res.message || 'Failed to update profile picture');
+      }
+    }
+  };
 
   const save = async () => {
     if (!displayName.trim()) {
@@ -38,9 +70,20 @@ export default function UserScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Header Section */}
       <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <Ionicons name="person" size={40} color="#fff" />
-        </View>
+        <TouchableOpacity 
+          style={styles.avatarContainer} 
+          onPress={pickImage}
+          activeOpacity={0.7}
+        >
+          {user?.photoURL ? (
+            <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+          ) : (
+            <Ionicons name="person" size={40} color="#fff" />
+          )}
+          <View style={styles.cameraIcon}>
+            <Ionicons name="camera" size={16} color="#fff" />
+          </View>
+        </TouchableOpacity>
         <Text style={styles.welcomeText}>Welcome back!</Text>
         <Text style={styles.username}>{user?.displayName || user?.username || 'User'}</Text>
       </View>
@@ -121,6 +164,21 @@ export default function UserScreen() {
           <Text style={styles.sectionTitle}>Account</Text>
         </View>
 
+        {/* Admin Panel Button - Only show for admins */}
+        {user?.isAdmin && (
+          <>
+            <TouchableOpacity 
+              style={styles.adminButton} 
+              onPress={() => navigation.navigate('Admin')}
+            >
+              <Ionicons name="shield-checkmark" size={22} color="#2563EB" />
+              <Text style={styles.adminText}>Admin Panel</Text>
+              <Ionicons name="chevron-forward" size={20} color="#2563EB" />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+          </>
+        )}
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color="#EF4444" />
           <Text style={styles.logoutText}>Logout</Text>
@@ -160,7 +218,26 @@ const styles = StyleSheet.create({
     shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8
+    shadowRadius: 8,
+    overflow: 'hidden'
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#2563EB',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff'
   },
   welcomeText: {
     fontSize: 16,
@@ -287,6 +364,24 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E5E7EB',
     marginVertical: 8
+  },
+  adminButton: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    marginBottom: 8
+  },
+  adminText: { 
+    flex: 1,
+    color: '#2563EB', 
+    fontWeight: '700',
+    fontSize: 16,
+    marginLeft: 12
   },
   logoutButton: { 
     flexDirection: 'row',

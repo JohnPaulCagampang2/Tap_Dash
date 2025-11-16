@@ -12,6 +12,7 @@ import HomeScreen from '../screens/Home/HomeScreen';
 import GameScreen from '../screens/Game/GameScreen';
 import LeaderboardScreen from '../screens/Leaderboard/LeaderboardScreen';
 import UserScreen from '../screens/User/UserScreen';
+import AdminScreen from '../screens/Admin/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,6 +44,11 @@ export default function RootNavigator() {
           <Stack.Screen 
             name="User" 
             component={UserScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="Admin" 
+            component={AdminScreen}
             options={{ headerShown: false }}
           />
         </>
