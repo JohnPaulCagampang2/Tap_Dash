@@ -11,6 +11,11 @@ export default function UserScreen() {
   const navigation = useNavigation();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   const pickImage = async () => {
     // Request permission
@@ -50,6 +55,30 @@ export default function UserScreen() {
     if (res.success) {
       Alert.alert('✓ Success', 'Your profile has been updated');
       setEditing(false);
+    } else {
+      Alert.alert('Error', res.message);
+    }
+  };
+
+  const savePassword = async () => {
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      Alert.alert('Error', 'Please fill in all password fields');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    const res = await updateProfile({ password: passwordForm.newPassword });
+    if (res.success) {
+      Alert.alert('✓ Success', 'Password changed successfully');
+      setChangingPassword(false);
+      setPasswordForm({ newPassword: '', confirmPassword: '' });
     } else {
       Alert.alert('Error', res.message);
     }
@@ -146,6 +175,66 @@ export default function UserScreen() {
                   onPress={() => {
                     setEditing(false);
                     setDisplayName(user?.displayName || '');
+                  }}
+                >
+                  <Ionicons name="close" size={18} color="#6B7280" />
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Password Section */}
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabel}>
+            <Ionicons name="lock-closed-outline" size={20} color="#6B7280" />
+            <Text style={styles.labelText}>Password</Text>
+          </View>
+          
+          {!changingPassword ? (
+            <View style={styles.editableRow}>
+              <Text style={styles.valueText}>••••••••</Text>
+              <TouchableOpacity 
+                onPress={() => { 
+                  setChangingPassword(true); 
+                  setPasswordForm({ newPassword: '', confirmPassword: '' }); 
+                }}
+                style={styles.editButton}
+              >
+                <Ionicons name="pencil" size={18} color="#2563EB" />
+                <Text style={styles.editText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.editContainer}>
+              <TextInput
+                value={passwordForm.newPassword}
+                onChangeText={(text) => setPasswordForm({ ...passwordForm, newPassword: text })}
+                placeholder="New password"
+                style={styles.input}
+                secureTextEntry
+                autoFocus
+              />
+              <TextInput
+                value={passwordForm.confirmPassword}
+                onChangeText={(text) => setPasswordForm({ ...passwordForm, confirmPassword: text })}
+                placeholder="Confirm password"
+                style={[styles.input, { marginTop: 10 }]}
+                secureTextEntry
+              />
+              <View style={styles.buttonRow}>
+                <TouchableOpacity style={styles.saveBtn} onPress={savePassword}>
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                  <Text style={styles.saveText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.cancelBtn} 
+                  onPress={() => {
+                    setChangingPassword(false);
+                    setPasswordForm({ newPassword: '', confirmPassword: '' });
                   }}
                 >
                   <Ionicons name="close" size={18} color="#6B7280" />

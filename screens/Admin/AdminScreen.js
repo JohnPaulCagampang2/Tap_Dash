@@ -15,8 +15,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 
-// 🔒 SET YOUR ADMIN PASSWORD HERE
-const ADMIN_PASSWORD = 'admin123'; // ⚠️ CHANGE THIS!
+// 🔒 ADMIN CREDENTIALS - MUST MATCH AuthContext.js!
+const ADMIN_EMAIL = 'admindev@gmail.com';
+const ADMIN_PASSWORD = 'admin123';  // ⚠️ CHANGE THIS TO A SECURE PASSWORD!
 
 export default function AdminScreen() {
   const { user, getRegisteredUsers, updateUser, deleteUser } = useContext(AuthContext);
@@ -34,26 +35,16 @@ export default function AdminScreen() {
   // Password protection state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [attempts, setAttempts] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Check if user is admin, if not show error
-  if (!user?.isAdmin) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.accessDenied}>
-          <Ionicons name="lock-closed" size={64} color="#EF4444" />
-          <Text style={styles.accessDeniedTitle}>Access Denied</Text>
-          <Text style={styles.accessDeniedText}>
-            You don't have permission to access the admin panel.
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  // Check if current user's email matches admin email
+  const isAdminEmail = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (isAuthenticated) {
+      loadUsers();
+    }
+  }, [isAuthenticated]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -62,13 +53,23 @@ export default function AdminScreen() {
     setLoading(false);
   };
 
+  const handlePasswordSubmit = () => {
+    if (passwordInput === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      setPasswordInput('');
+    } else {
+      Alert.alert('Access Denied', 'Incorrect password. Please try again.');
+      setPasswordInput('');
+    }
+  };
+
   const handleEdit = (userToEdit) => {
     setSelectedUser(userToEdit);
     setEditForm({
       username: userToEdit.username || '',
       email: userToEdit.email || '',
       displayName: userToEdit.displayName || '',
-      password: userToEdit.password || ''
+      password: ''
     });
     setModalVisible(true);
   };
@@ -79,13 +80,11 @@ export default function AdminScreen() {
       return;
     }
 
-    // Prepare updates - only include password if it was changed
     const updates = {
       username: editForm.username,
       displayName: editForm.displayName
     };
 
-    // Only update password if a new one was entered
     if (editForm.password && editForm.password.trim() !== '') {
       updates.password = editForm.password;
     }
@@ -123,6 +122,96 @@ export default function AdminScreen() {
     );
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout from admin panel?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          onPress: () => setIsAuthenticated(false)
+        }
+      ]
+    );
+  };
+
+  // ACCESS DENIED - Not admin email
+  if (!isAdminEmail) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.accessDenied}>
+          <Ionicons name="lock-closed" size={64} color="#EF4444" />
+          <Text style={styles.accessDeniedTitle}>Access Denied</Text>
+          <Text style={styles.accessDeniedText}>
+            You don't have permission to access the admin panel.
+          </Text>
+          <Text style={styles.adminEmailText}>
+            Admin Email: {ADMIN_EMAIL}
+          </Text>
+          <Text style={styles.currentEmailText}>
+            Your Email: {user?.email || 'Not logged in'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // PASSWORD PROTECTION SCREEN
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loginContainer}>
+          <View style={styles.loginHeader}>
+            <Ionicons name="shield-checkmark" size={72} color="#2563EB" />
+            <Text style={styles.loginTitle}>Admin Panel</Text>
+            <Text style={styles.loginSubtitle}>Enter password to continue</Text>
+          </View>
+
+          <View style={styles.loginForm}>
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={passwordInput}
+                onChangeText={setPasswordInput}
+                placeholder="Enter admin password"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                onSubmitEditing={handlePasswordSubmit}
+              />
+              <TouchableOpacity 
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons 
+                  name={showPassword ? "eye-off" : "eye"} 
+                  size={22} 
+                  color="#6B7280" 
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.loginButton} 
+              onPress={handlePasswordSubmit}
+            >
+              <Ionicons name="lock-open" size={20} color="#fff" />
+              <Text style={styles.loginButtonText}>Unlock Panel</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.loginInfo}>
+            <Ionicons name="information-circle" size={20} color="#6B7280" />
+            <Text style={styles.loginInfoText}>
+              Logged in as: {user?.email}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // MAIN ADMIN PANEL (after authentication)
   const renderUser = ({ item }) => (
     <View style={styles.userCard}>
       <View style={styles.userHeader}>
@@ -135,7 +224,17 @@ export default function AdminScreen() {
             </View>
           )}
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{item.displayName || item.username}</Text>
+            <View style={styles.userNameRow}>
+              <Text style={styles.userName}>
+                {item.displayName || item.username}
+              </Text>
+              {item.isAdmin && (
+                <View style={styles.adminBadge}>
+                  <Ionicons name="shield-checkmark" size={12} color="#2563EB" />
+                  <Text style={styles.adminBadgeText}>Admin</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.userEmail}>{item.email}</Text>
             <Text style={styles.userUsername}>@{item.username}</Text>
           </View>
@@ -167,9 +266,14 @@ export default function AdminScreen() {
           <Ionicons name="shield-checkmark" size={28} color="#2563EB" />
           <Text style={styles.headerTitle}>Admin Panel</Text>
         </View>
-        <TouchableOpacity style={styles.refreshBtn} onPress={loadUsers}>
-          <Ionicons name="refresh" size={22} color="#2563EB" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.refreshBtn} onPress={loadUsers}>
+            <Ionicons name="refresh" size={22} color="#2563EB" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <Ionicons name="log-out" size={22} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Stats */}
@@ -207,7 +311,6 @@ export default function AdminScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Modal Header */}
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Edit User</Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -215,15 +318,11 @@ export default function AdminScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Form Fields */}
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, styles.inputDisabled]}
                   value={editForm.email}
-                  onChangeText={(text) => setEditForm({ ...editForm, email: text })}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
                   editable={false}
                 />
                 <Text style={styles.helperText}>Email cannot be changed</Text>
@@ -260,7 +359,6 @@ export default function AdminScreen() {
                 <Text style={styles.helperText}>Leave blank to keep the current password</Text>
               </View>
 
-              {/* Action Buttons */}
               <View style={styles.modalActions}>
                 <TouchableOpacity 
                   style={styles.saveButton} 
@@ -289,6 +387,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F3F4F6'
   },
+  // Login Screen Styles
+  loginContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 30
+  },
+  loginHeader: {
+    alignItems: 'center',
+    marginBottom: 40
+  },
+  loginTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 20,
+    marginBottom: 8
+  },
+  loginSubtitle: {
+    fontSize: 16,
+    color: '#6B7280'
+  },
+  loginForm: {
+    gap: 16
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative'
+  },
+  passwordInput: {
+    flex: 1,
+    height: 56,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingRight: 50,
+    fontSize: 16,
+    backgroundColor: '#fff'
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 16,
+    padding: 4
+  },
+  loginButton: {
+    flexDirection: 'row',
+    backgroundColor: '#2563EB',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    elevation: 3,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700'
+  },
+  loginInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 30,
+    padding: 16,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12
+  },
+  loginInfoText: {
+    fontSize: 14,
+    color: '#6B7280'
+  },
+  // Header Styles
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -310,11 +487,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827'
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8
+  },
   refreshBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  logoutBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -385,10 +574,29 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
   userName: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111827'
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3
+  },
+  adminBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563EB'
   },
   userEmail: {
     fontSize: 13,
@@ -474,6 +682,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#fff'
   },
+  inputDisabled: {
+    backgroundColor: '#F9FAFB',
+    color: '#9CA3AF'
+  },
   helperText: {
     fontSize: 12,
     color: '#6B7280',
@@ -509,6 +721,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600'
   },
+  // Access Denied Styles
   accessDenied: {
     flex: 1,
     justifyContent: 'center',
@@ -526,6 +739,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 24
+    lineHeight: 24,
+    marginBottom: 16
+  },
+  adminEmailText: {
+    fontSize: 14,
+    color: '#2563EB',
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  currentEmailText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500'
   }
 });

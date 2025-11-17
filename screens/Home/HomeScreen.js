@@ -1,12 +1,9 @@
 import React, { useContext, useRef, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, Animated, Dimensions, Alert } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 
 const { width: W, height: H } = Dimensions.get('window');
-const EMOJI_SET = ['🎮', '⭐', '🏆', '✨', '🔥', '🎉', '🫶', '🌟'];
-
-// 🔒 CHANGE THIS TO YOUR ADMIN EMAIL
-const ADMIN_EMAIL = 'AdminOnly@gmail.com'; // ⚠️ UPDATE THIS!
+const EMOJI_SET = ['🎮', '⭐', '🏆', '✨', '🔥', '🎉', '💎', '🌟'];
 
 export default function HomeScreen({ navigation }) {
   const { logout, user } = useContext(AuthContext);
@@ -22,6 +19,7 @@ export default function HomeScreen({ navigation }) {
 
   // Admin access state
   const [tapCount, setTapCount] = useState(0);
+  const tapTimeout = useRef(null);
 
   useEffect(() => {
     // Staggered entrance animations
@@ -66,7 +64,10 @@ export default function HomeScreen({ navigation }) {
 
     // Spawn particles periodically
     const spawnInterval = setInterval(() => spawnParticleBurst(), 1500);
-    return () => clearInterval(spawnInterval);
+    return () => {
+      clearInterval(spawnInterval);
+      if (tapTimeout.current) clearTimeout(tapTimeout.current);
+    };
   }, []);
 
   // Secret admin access - tap username 5 times
@@ -74,36 +75,50 @@ export default function HomeScreen({ navigation }) {
     const newCount = tapCount + 1;
     setTapCount(newCount);
 
+    // Clear existing timeout
+    if (tapTimeout.current) {
+      clearTimeout(tapTimeout.current);
+    }
+
     if (newCount === 5) {
       // Check if admin
-      if (user?.email === ADMIN_EMAIL) {
-        navigation.navigate('UsersList');
-        setTapCount(0);
+      if (user?.isAdmin) {
+        Alert.alert(
+          '🔓 Admin Access',
+          'Welcome to the Admin Panel!',
+          [
+            {
+              text: 'Enter',
+              onPress: () => {
+                navigation.navigate('Admin');
+                setTapCount(0);
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => setTapCount(0)
+            }
+          ]
+        );
       } else {
-        // Reset counter for non-admin
-        setTapCount(0);
+        Alert.alert(
+          '🔒 Access Denied',
+          'You do not have admin permissions.',
+          [{ text: 'OK', onPress: () => setTapCount(0) }]
+        );
+      }
+    } else {
+      // Show subtle feedback for tap count
+      if (newCount >= 3) {
+        console.log(`🔐 ${5 - newCount} more tap${5 - newCount !== 1 ? 's' : ''} to admin...`);
       }
     }
 
-    // Reset counter after 2 seconds
-    setTimeout(() => setTapCount(0), 2000);
-  };
-
-  // Button press animations
-  const animateButton = (scale) => {
-    return Animated.spring(scale, { 
-      toValue: 0.95, 
-      friction: 3,
-      useNativeDriver: true 
-    });
-  };
-
-  const resetButton = (scale) => {
-    return Animated.spring(scale, { 
-      toValue: 1, 
-      friction: 3,
-      useNativeDriver: true 
-    });
+    // Reset counter after 2 seconds of inactivity
+    tapTimeout.current = setTimeout(() => {
+      setTapCount(0);
+    }, 2000);
   };
 
   // Create a single particle animation object
@@ -233,7 +248,10 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.welcomeText}>Welcome back,</Text>
             {/* SECRET ADMIN ACCESS - Tap username 5 times */}
             <TouchableOpacity onPress={handleUsernamePress} activeOpacity={0.9}>
-              <Text style={styles.username}>{user?.username || 'Player'}</Text>
+              <Text style={styles.username}>
+                {user?.displayName || user?.username || 'Player'}
+                {user?.isAdmin && ' 🛡️'}
+              </Text>
             </TouchableOpacity>
             <View style={styles.divider} />
             <Text style={styles.miniText}>Ready to start your next adventure?</Text>

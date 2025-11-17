@@ -7,6 +7,11 @@ export const AuthContext = createContext();
 const USERS_KEY = 'tapdash_users';
 const SESSION_KEY = 'tapdash_user_session';
 
+// 🔒 HARDCODED ADMIN CREDENTIALS - CHANGE THESE!
+const ADMIN_EMAIL = 'admindev@gmail.com';
+const ADMIN_USERNAME = 'Admin';
+const ADMIN_PASSWORD = 'admin123'; // ⚠️ CHANGE THIS TO YOUR PASSWORD!
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +26,43 @@ export const AuthProvider = ({ children }) => {
         console.log('Auth load session error', e);
       } finally {
         setLoading(false);
+      }
+    })();
+  }, []);
+
+  // 🔐 AUTO-CREATE ADMIN ACCOUNT ON STARTUP
+  useEffect(() => {
+    (async () => {
+      try {
+        const users = await getRegisteredUsers();
+        const validUsers = users.filter(u => u && u.email);
+        const adminExists = validUsers.some(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+        
+        if (!adminExists) {
+          // Create admin account automatically
+          const adminUser = { 
+            email: ADMIN_EMAIL.toLowerCase(), 
+            username: ADMIN_USERNAME, 
+            password: ADMIN_PASSWORD, 
+            isAdmin: true,
+            displayName: ADMIN_USERNAME
+          };
+          validUsers.push(adminUser);
+          await AsyncStorage.setItem(USERS_KEY, JSON.stringify(validUsers));
+          console.log('✅ Admin account created automatically!');
+          console.log('📧 Email:', ADMIN_EMAIL);
+          console.log('🔑 Password:', ADMIN_PASSWORD);
+        } else {
+          // Admin exists, but make sure isAdmin flag is set
+          const adminIndex = validUsers.findIndex(u => u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+          if (adminIndex !== -1 && !validUsers[adminIndex].isAdmin) {
+            validUsers[adminIndex].isAdmin = true;
+            await AsyncStorage.setItem(USERS_KEY, JSON.stringify(validUsers));
+            console.log('✅ Admin flag updated for existing account!');
+          }
+        }
+      } catch (e) {
+        console.log('Auto-create admin error', e);
       }
     })();
   }, []);
@@ -53,8 +95,8 @@ export const AuthProvider = ({ children }) => {
     
     if (exists) return { success: false, message: 'Email already registered' };
 
-    // Set admin to true ONLY for your specific email
-    const isAdmin = emailLower === 'AdminOnly@gmail.com'; // 👈 CHANGE THIS TO YOUR EMAIL
+    // 🔒 SET YOUR ADMIN EMAIL HERE - CHANGE THIS!
+    const isAdmin = emailLower === ADMIN_EMAIL.toLowerCase();
     
     const newUser = { email: emailLower, username, password, isAdmin };
     validUsers.push(newUser);
@@ -86,12 +128,13 @@ export const AuthProvider = ({ children }) => {
 
     if (found.password !== password) return { success: false, message: 'Invalid password' };
 
-    // Include all user data in session (displayName, photoURL, etc.)
+    // Include all user data in session (displayName, photoURL, isAdmin, etc.)
     const sess = { 
       email: found.email, 
       username: found.username,
       displayName: found.displayName || found.username,
-      photoURL: found.photoURL || null
+      photoURL: found.photoURL || null,
+      isAdmin: found.isAdmin || false  // ✅ Include isAdmin flag
     };
     setUser(sess);
 
